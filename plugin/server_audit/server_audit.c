@@ -1384,15 +1384,28 @@ static size_t log_header(char *message, size_t message_len,
     host= userip;
   }
 
-  if (output_type == OUTPUT_SYSLOG)
+  if (output_type == OUTPUT_SYSLOG) {
+    printf("ROB->%.*s,%.*s,%.*s,%d,%lld,%s",
+        (unsigned int) serverhost_len, serverhost,
+        username_len, username,
+        host_len, host,
+        connection_id, query_id, operation);
     return my_snprintf(message, message_len,
         "%.*s,%.*s,%.*s,%d,%lld,%s",
         (unsigned int) serverhost_len, serverhost,
         username_len, username,
         host_len, host,
         connection_id, query_id, operation);
+  }
 
   (void) localtime_r(ts, &tm_time);
+  printf("ROB->%04d%02d%02d %02d:%02d:%02d,%.*s,%.*s,%.*s,%d,%lld,%s",
+      tm_time.tm_year+1900, tm_time.tm_mon+1, tm_time.tm_mday,
+      tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec,
+      (int)serverhost_len, serverhost,
+      username_len, username,
+      host_len, host,
+      connection_id, query_id, operation);
   return my_snprintf(message, message_len,
       "%04d%02d%02d %02d:%02d:%02d,%.*s,%.*s,%.*s,%d,%lld,%s",
       tm_time.tm_year+1900, tm_time.tm_mon+1, tm_time.tm_mday,
@@ -1419,6 +1432,10 @@ static int log_proxy(const struct connection_info *cn,
                     cn->host, cn->host_length,
                     cn->ip, cn->ip_length,
                     event->thread_id, 0, "PROXY_CONNECT");
+  printf(",%.*s,`%.*s`@`%.*s`,%d", cn->db_length, cn->db,
+                     cn->proxy_length, cn->proxy,
+                     cn->proxy_host_length, cn->proxy_host,
+                     event->status);
   csize+= my_snprintf(message+csize, sizeof(message) - 1 - csize,
     ",%.*s,`%.*s`@`%.*s`,%d", cn->db_length, cn->db,
                      cn->proxy_length, cn->proxy,
@@ -1444,6 +1461,7 @@ static int log_connection(const struct connection_info *cn,
                     cn->host, cn->host_length,
                     cn->ip, cn->ip_length,
                     event->thread_id, 0, type);
+  printf(",%.*s,,%d", cn->db_length, cn->db, event->status);
   csize+= my_snprintf(message+csize, sizeof(message) - 1 - csize,
     ",%.*s,,%d", cn->db_length, cn->db, event->status);
   message[csize]= '\n';
@@ -1465,6 +1483,7 @@ static int log_connection_event(const struct mysql_event_connection *event,
                     event->host, event->host_length,
                     event->ip, event->ip_length,
                     event->thread_id, 0, type);
+  printf(",%.*s,,%d", (int)event->database.length, event->database.str, event->status);
   csize+= my_snprintf(message+csize, sizeof(message) - 1 - csize,
     ",%.*s,,%d", event->database.length, event->database.str, event->status);
   message[csize]= '\n';
@@ -1810,6 +1829,7 @@ do_log_query:
                     cn->user, cn->user_length,cn->host, cn->host_length,
                     cn->ip, cn->ip_length, thd_id, query_id, type);
 
+  printf(",%.*s,\'", db_length, db);
   csize+= my_snprintf(message+csize, message_size - 1 - csize,
       ",%.*s,\'", db_length, db);
 
@@ -1870,6 +1890,7 @@ do_log_query:
                                uh_buffer, uh_buffer_size); 
       break;
   }
+  printf("ROB->\',%d", error_code);
   csize+= my_snprintf(message+csize, message_size - 1 - csize,
                       "\',%d", error_code);
   message[csize]= '\n';
@@ -1905,6 +1926,8 @@ static int log_table(const struct connection_info *cn,
                     event->host, SAFE_STRLEN_UI(event->host),
                     event->ip, SAFE_STRLEN_UI(event->ip),
                     event->thread_id, cn->query_id, type);
+  printf(",%.*s,%.*s,",(int)event->database.length, event->database.str,
+                          (int)event->table.length, event->table.str);
   csize+= my_snprintf(message+csize, sizeof(message) - 1 - csize,
             ",%.*s,%.*s,",event->database.length, event->database.str,
                           event->table.length, event->table.str);
@@ -1927,6 +1950,10 @@ static int log_rename(const struct connection_info *cn,
                     event->host, SAFE_STRLEN_UI(event->host),
                     event->ip, SAFE_STRLEN_UI(event->ip),
                     event->thread_id, cn->query_id, "RENAME");
+  printf(",%.*s,%.*s|%.*s.%.*s,",(int)event->database.length, event->database.str,
+                         (int)event->table.length, event->table.str,
+                         (int)event->new_database.length, event->new_database.str,
+                         (int)event->new_table.length, event->new_table.str);
   csize+= my_snprintf(message+csize, sizeof(message) - 1 - csize,
             ",%.*s,%.*s|%.*s.%.*s,",event->database.length, event->database.str,
                          event->table.length, event->table.str,
